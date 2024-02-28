@@ -1,7 +1,7 @@
-# 这是一个面向过程的因子回测框架
-# 包含数据预处理，标准化，单分组，分析交易状态，构建多空组合，风险调整和FM回归(Barra)等功能，整体分为3部分：pro process,factor singlesort和factor test
+# 这是一个面向过程的因子回测框架,包含数据预处理，标准化，单分组，分析交易状态，构建多空组合，风险调整和FM回归(Barra)等功能
+# 整体分为3部分：pro process,factor singlesort和factor test
 
-## 1.pre_process
+## 1.pre process
 ### 1.1.pretty_unstack(df_unstack_lst,format_lst)
 ```python
 描述:
@@ -167,7 +167,7 @@ lst_percentile:list:[percentile1(float,percentile方法左侧极值参数)\
 输出变量:
 df:去除极值后的DataFrame
 ```
-### 1.10.standardize_t(df_t,type):
+### 1.10.standardize_t(df_t,type)
 ```python
 描述:
 对相同日期不同股票或因子值的面板数据标准化或归一化
@@ -207,3 +207,134 @@ type:str,type == 'standardize'时做标准化(z-score),type == 'normalize'时做
 输出变量:
 df_standard:堆栈DataFrame,标准化或归一化后的股票或因子值,index为时间,columns为股票代码或因子,shape = [T,N]
 ```
+
+## 2.factor singlesort
+### 2.1.singlesort_id_t(df_t_stack,g)
+```python
+描述:
+根据t时刻的公司特征(character)和股票状态(state)对股票代码(code)进行分组,输出每个股票对应的组号(1-g),有缺失值或不考虑的股票组号为np.nan
+
+输入参数:
+df_t_stack:DataFrame,堆栈数据,共3列,列名为:['code','character','state'],shape = [N,3],N为股票数量
+    code:str,股票代码
+    character:float,用于分组的公司特征
+    state:float,股票当日分组时是否考虑(一般不考虑ST股票或新上市股票)
+
+g:int,分组数量
+
+输出参数:
+sort_id_t:Series,每个股票对应的组号(1-g),缺失值的股票组号为nan,index为股票代码,shape = [N,],N为股票数量
+```
+### 2.2.singlesort_ret_t(df_sort_t)
+```python
+描述:
+根据t时刻股票收益率、上一期股票分组结果和股票权重计算t时刻分组收益率
+
+输入参数:
+df_sort_t:DataFrame,堆栈数据,共5列,列名为:['date','code','ret','id','weight']
+    date:datetime.date,计算分组收益率当天的日期,所有行的值相等(因为上一步是对date做了groupby)
+    code:str,股票代码
+    ret:float,当期收益率
+    id:float,上一期分组的组别,尽管type(id)为float,但实际全为1-组数的整数
+    weight:float,上一期每个股票的收益率权重(例如市值)
+
+输出参数:
+ret_sort_t:Series,每组收益率,shape = (组数,)
+```
+### 2.3.singlesort_stack(df_stack,g,weighted,stated)
+```python
+描述：
+提取堆栈数据的信息,并根据信息输出所有时刻单变量分组收益率
+
+输入参数：
+df_stack:DataFrame,堆栈数据,共6列,列名为['code','date','ret','character',*'weight',*'state']
+    date:datetime.date,日期
+    code:str,股票代码
+    ret:float,当期股票收益率
+    character:float,用于分组的公司特征
+    *weight:float,计算加权收益率时,每个股票对应的指标(如市值),没有wesight列时计算等权重收益率
+    *state:float,股票当日分组时是否考虑(一般不考虑ST股票或新上市股票)
+
+g:int,分组个数
+
+weighted:bool,是否计算加权收益率
+
+stated:bool,是否对ST或流动性不高的股票进行筛选
+
+输出参数:
+ret_sort:面板DataFrame,分组收益率,index为datetime.date格式的日期,shape = [T,g]
+
+df_port:堆栈DataFrame,每个组合中各股票的权重,共4列,列名为['date','code','id','weight']
+    date:datetime.date,日期
+    code:str,股票代码
+    id:float,1~g的整数,分组编号
+    weight:float,归一化后的股票权重,相同日期和id的股票weight之和为1
+```
+### 2.4.singlesort_unstack(ret,character,g,weighted,stated,weight = None,state = None)
+```python
+描述：
+提取面板数据的信息,并根据信息输出所有时刻单变量分组收益率
+
+输入参数：
+ret:DataFrame,股票收益率,index为日期(datetime.date),columns为股票代码(str),shape = [T,N]
+
+character:DataFrame,用于分组的公司特征,index为日期(datetime.date),columns为股票代码(str),shape = [T,N]
+
+g:int,分组个数
+
+weighted:bool,是否计算加权收益率
+
+stated:bool,是否对ST或流动性不高的股票进行筛选
+
+weight:DataFrame,计算加权收益率时对应的指标(如市值),没有weight时计算等权重收益率,
+    index为日期(datetime.date),columns为股票代码(str),shape = [T,N]
+
+state:DataFrame,筛选ST或流动性不高的股票时对应的指标,没有state时不筛选,
+    index为日期(datetime.date),columns为股票代码(str),values为0或1(float),空值为nan,shape = [T,N]
+
+输出参数:
+ret_sort:DataFrame,分组收益率,index为datetime.date格式的日期,shape = [T,g]
+
+df_port:堆栈DataFrame,每个组合中各股票的权重,共4列,列名为['date','code','id','weight']
+    date:datetime.date,日期
+    code:str,股票代码
+    id:float,1~g的整数,分组编号
+    weight:float,归一化后的股票权重,相同日期和id的股票weight之和为1
+```
+### 2.5.long_short_cal(ret,long_only,fee = None,df_port = None):
+```python
+描述:根据分组收益率计算多空组合收益率
+
+输入参数：
+ret:DataFrame,分组收益率,index为datetime.date格式的日期,shape = [T,group]
+
+long_only:bool,long_only == True时只计算多头收益,不计算多空收益,long_only == False时计算多空收益
+
+fee:float,交易费率(一般用0.003),fee == None时不考虑交易费用
+
+df_port:堆栈DataFrame,每个组合中各股票的权重,共4列,列名为['date','code','id','weight']
+    date:datetime.date,日期
+    code:str,股票代码
+    id:float,1~g的整数,分组编号
+    weight:float,归一化后的股票权重,相同日期和id的股票weight之和为1
+
+输出参数：
+df_long_short:DataFrame,index为datetime.date格式的日期,第一列为多空组合收益率,shape = [T,1]
+```
+### 2.6.net_val_cal(ret,show = False):
+```python
+描述:根据分组收益率计算各组累计净值或多空组合净值并画图
+
+输入参数:
+ret:DataFrame,分组收益率,index为datetime.date格式的日期,shape = [T,group]
+
+show:bool,是否显示图像,当show == True时,会在本函数处暂停向下运行并显示分组净值图像；
+
+show == False时不显示函数图像,只在主函数路径下导出cumulative net value.jpg的文件
+
+输出参数：
+cum_ret:DataFrame,分组累计净值,index为日期,第一列到最后一列为各个日期的分组净值,shape = [T,group]
+```
+
+## 3.factor test
+### 3.1.
