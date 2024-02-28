@@ -3,7 +3,7 @@
 
 ## 1.pre_process
 ### 1.1.pretty_unstack(df_unstack_lst,format_lst)
-'''python
+```python
 描述:\
 对一系列面板数据格式标准化,将日期格式标准化datetime.date并置为index,将各dataframe的日期对应一致
 
@@ -17,7 +17,7 @@ format_lst:list,各个面板数据对应的str类型的日期格式,如'%Y-%m-%d
 df_pretty_lst:list,其中的每个元素是标准化后的面板DataFrame,shape = [X,1]\
     DataFrame的index为datetime.date类型的日期,index_name = 'date'\
     各列是因子或公司特征值,shape = [T,N]
-'''
+```
 
 ### 1.2.pretty_stack(df_stack,date_format)
 描述:\
