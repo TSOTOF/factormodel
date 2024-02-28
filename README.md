@@ -1,5 +1,5 @@
-# 这是一个面向过程的因子回测框架,包含数据预处理，标准化，单分组，分析交易状态，构建多空组合，风险调整和FM回归(Barra)等功能
-# 整体分为3部分：pro process,factor singlesort和factor test
+# 这是一个面向过程的因子回测框架，包含数据预处理，标准化，单分组，分析交易状态，构建多空组合，风险调整和FM回归(Barra)等功能
+# 整体分为3部分：pro process，factor singlesort和factor test
 
 ## 1.pre process
 ### 1.1.pretty_unstack(df_unstack_lst,format_lst)
@@ -301,7 +301,7 @@ df_port:堆栈DataFrame,每个组合中各股票的权重,共4列,列名为['dat
     id:float,1~g的整数,分组编号
     weight:float,归一化后的股票权重,相同日期和id的股票weight之和为1
 ```
-### 2.5.long_short_cal(ret,long_only,fee = None,df_port = None):
+### 2.5.long_short_cal(ret,long_only,fee = None,df_port = None)
 ```python
 描述:根据分组收益率计算多空组合收益率
 
@@ -321,7 +321,7 @@ df_port:堆栈DataFrame,每个组合中各股票的权重,共4列,列名为['dat
 输出参数：
 df_long_short:DataFrame,index为datetime.date格式的日期,第一列为多空组合收益率,shape = [T,1]
 ```
-### 2.6.net_val_cal(ret,show = False):
+### 2.6.net_val_cal(ret,show = False)
 ```python
 描述:根据分组收益率计算各组累计净值或多空组合净值并画图
 
@@ -337,4 +337,114 @@ cum_ret:DataFrame,分组累计净值,index为日期,第一列到最后一列为�
 ```
 
 ## 3.factor test
-### 3.1.
+### 3.1.ic_cal_stack(df_stack,ic_lst,type = 'rank')
+```python
+描述:
+根据堆栈收益率和因子数据批量算因子normal ic和rank ic
+
+输入变量:
+df_stack:堆栈DataFrame,第一列为datetime.date类型的日期,第二列为str类型的股票代码,
+    其它列是收益率及公司特征值,shape = [T*N,2+n]
+
+ic_lst:list,计算涉及的变量名,ic_lst[0]为当期收益率列名,其余为相关因子列名
+
+type:str,计算的IC类型,'normal'或'rank'
+
+输出变量:
+df_ic:面板DataFrame,index为日期,columns为因子名,values为各期因子ic
+```
+### 3.2.icir_cal(df_ic)
+```python
+描述:
+根据因子IC序列计算IC均值和IR
+
+输入变量:
+df_ic:面板DataFrame,index为日期,columns为因子名,values为各期因子ic值,shape = [T,n]
+
+输出变量:
+icmean:Series,各因子ic均值,shape = [n],n == 1时type(icmean) = float
+
+ir:Series,各因子ir,shape = [n],n == 1时type(ir) = float
+```
+### 3.3.ratios_cal(df_ratio_pre,multi)
+```python
+描述:
+根据收益率和累计收益率序列计算年化夏普比率,最大回撤率
+
+输入变量:
+df_ratio_pre:面板DataFrame,index为日期,第一列为收益率,第二列为累计收益率,第三列为无风险利率
+
+multi:计算年化夏普比率时的乘数,如日化转年化sqrt(252),月化转年化sqrt(12),周化转年化sqrt(52)
+
+输出变量:
+sharp,max_drawdown:float,年化夏普和最大回撤率
+```
+### 3.4.newey_west_test(ret,lag = None)
+```python
+描述：
+计算收益率序列的均值,newey-west t值和p值
+
+输入变量:
+ret:array,收益率序列,shape = [T,1]
+
+lag:int,Newey-West滞后阶数,默认为int(4*(T/100)^(2/9))
+
+输出变量：
+mean_ret:float,收益率均值
+
+tval:float,收益率的Newey-west t值
+
+pval:float,收益率的Newey-west p值
+```
+### 3.5.newey_west_reg(ret_factor,lag = None)
+```python
+描述：
+将股票收益率或组合收益率向因子收益率回归,计算回归的alpha,beta,newey-west t值和p值
+
+输入变量:
+ret_factor:DataFrame,第一列为股票或组合收益率,第二列到最后一列为因子收益率,shape = [T,1 + factor_num]
+
+lag:int,Newey-West滞后阶数,默认为int(4*(T/100)^(2/9))
+
+输出变量：
+param:Series,回归系数,当alpha_cal == True时计算包含截距,否则不包含截距
+
+tval:Series,回归系数的Newey-west t值
+
+pval:Series,回归系数的Newey-west p值
+```
+### 3.6.beta_rolling(df,p,rolling_w)
+```python
+描述：
+根据股票收益率和风险因子时间序列数据,滚动进行newey-west回归,并计算股票在各期风险因子上的风险暴露(beta)
+
+输入变量:
+df:面板DataFrame,index为日期(datetime.date),columns为股票代码(str),\
+    index为日期(datetime.date),columns为股票代码(str),\
+    前N列为不同代码的股票各期收益率,后p列为不同风险因子的时序数据,shape = [T,N + p]
+
+p:风险因子数量
+
+rolling_w:回归窗口
+
+输出变量:
+df_beta_lst:list,shape = [p],每个元素是一个DataFrame
+    第i个DataFrame的t行j列是t时刻风险因子i在股票j上的滚动beta值,shape = [T - rolling_w,p]
+```
+### 3.7.fama_macbeth(df_stack,formula_lst,lag = None)
+```python
+描述:
+对堆栈数据(pretty_stack,panels2stack,del_outlier_stack输出格式均可)
+    做Fama-MacBeth回归并输出fama_macbeth对象
+
+输入变量:
+df_stack:堆栈DataFrame,第一列为datetime.date类型的日期,第二列为str类型的股票代码,
+    其它列是收益率及公司特征值,shape = [T*N,2+n]
+
+formula_lst:list,回归方程中的变量名,formula_lst[0]为当期收益率列名,其余为相关因子列名
+
+lag:int,Newey-West滞后阶数,默认为int(4*(T/100)^(2/9))
+
+输出变量:
+fm:fama_macbeth对象(linearmodels.FamaMacBeth)
+```
