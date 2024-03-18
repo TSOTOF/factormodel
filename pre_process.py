@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-
+from scipy.stats import mode
 
 def pretty_unstack(df_unstack_lst,format_lst):
     '''
@@ -365,3 +365,78 @@ def standardize_stack(df_stack,colname_lst,type = 'standardize'):
     for colname in colname_lst:
         df_standard[colname] = df_standard.groupby(datename,group_keys = False)[colname].apply(standardize_t,type = type)
     return df_standard
+
+
+def resamplefreq_unstack(df_unstack,cycle,type_lst):
+    '''
+    描述:
+    将面板较高频率的数据低频化(日度->周度,月度,季度)
+
+    输入变量:
+    df_unstack:反堆栈Dataframe,index为日期,columns为需要改变频率的数据,shape = [T,n]
+
+    cycle:int,低频化时的取样周期,例如cycle = 5时重新取样的数据根据原始的5条数据(window = 5)计算出
+        常见的cycle = 5(交易日日度->交易日周度),cycle = 20(交易日日度->交易日月度)
+
+    type_lst:list,低频化时各列数据的处理方法,values有{'end'(取窗口最后一个值),'start'(取窗口第一个值),'median'(取窗口数据中位数)
+        'mean'(取窗口数据平均值),'common'(取窗口数据众数),'sum'(取窗口数据之和),'max'(取窗口数据最大值),'min'(取窗口数据最小值)}
+
+    输出变量:
+    df_resample:反堆栈DataFrame,index为日期,columns为改变数据频率之后的数据,shape = [T,n/cycle]
+    '''
+    df = df_unstack.copy()
+    col_lst = []
+    for j in range(np.size(df,1)):
+        if type_lst[j] == 'start':# values用cycle开始的值,index用cycle结束的值
+            df_temp = df.iloc[range(0,len(df_unstack)-cycle+1,cycle),j]
+            df_temp.index = df.index[range(cycle-1,len(df_unstack),cycle)]
+        elif type_lst[j] == 'end':# values和index都用cycle结束的值
+            df_temp = df.iloc[range(cycle-1,len(df_unstack),cycle),j]
+        elif type_lst[j] == 'median':
+            df_temp = df.iloc[:,j].rolling(cycle).median().iloc[range(cycle-1,len(df_unstack),cycle)]
+        elif type_lst[j] == 'mean':
+            df_temp = df.iloc[:,j].rolling(cycle).mean().iloc[range(cycle-1,len(df_unstack),cycle)]
+        elif type_lst[j] == 'sum':
+            df_temp = df.iloc[:,j].rolling(cycle).sum().iloc[range(cycle-1,len(df_unstack),cycle)]
+        elif type_lst[j] == 'max':
+            df_temp = df.iloc[:,j].rolling(cycle).max().iloc[range(cycle-1,len(df_unstack),cycle)]
+        elif type_lst[j] == 'min':
+            df_temp = df.iloc[:,j].rolling(cycle).min().iloc[range(cycle-1,len(df_unstack),cycle)]
+        elif type_lst[j] == 'common': #如果存在多个众数,会返回最小的众数
+            df_temp = df.iloc[:,j].rolling(cycle).apply(lambda x: mode(x,keepdims = True)[0][0]).\
+                iloc[range(cycle-1,len(df_unstack),cycle)]
+        col_lst.append(pd.DataFrame(df_temp))
+    df_resample = pd.concat(col_lst,axis = 1)
+    return df_resample
+
+
+def resamplefreq_stack(df_stack,cycle,type_lst):
+    '''
+    描述:
+    将堆栈较高频率的数据低频化(日度->周度,月度,季度)
+
+    输入变量:
+    df_unstack:堆栈Dataframe,第一列为日期,第二列为股票代码,
+        columns = ['date','code',...],shape = [T*N,2 + n]
+
+    cycle:int,低频化时的取样周期,例如cycle = 5时重新取样的数据根据原始的5条数据(window = 5)计算出
+        常见的cycle = 5(交易日日度->交易日周度),cycle = 20(交易日日度->交易日月度)
+
+    type_lst:list,低频化时各列数据的处理方法,values有{'end'(取窗口最后一个值),'start'(取窗口第一个值),'median'(取窗口数据中位数)
+        'mean'(取窗口数据平均值),'common'(取窗口数据众数),'sum'(取窗口数据之和),'max'(取窗口数据最大值),'min'(取窗口数据最小值)}
+
+    输出变量:
+    df_resample:堆栈DataFrame,第一列为日期,第二列为股票代码,shape = [T*N,2 + n/cycle]
+    '''
+    df = df_stack.copy()
+    cal_cols = list(df.columns[2:])
+    def group_resample(df_unstack,cycle,type_lst):
+        # 调整groups的格式,方便直接用反堆栈的降频方法
+        df_unstack = df_unstack.set_index('date')
+        df_resample_temp = resamplefreq_unstack(df_unstack,cycle,type_lst)
+        return df_resample_temp.reset_index()
+    df_resample = df.groupby('code')[['date'] + cal_cols].apply(lambda x: group_resample(x,cycle,type_lst))
+    df_resample = df_resample.reset_index()
+    # 还原堆栈数据列名顺序
+    df_resample = df_resample[['date','code'] + cal_cols]
+    return df_resample
