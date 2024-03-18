@@ -182,7 +182,7 @@ def beta_rolling(df,p,rolling_w):
             ret_factor_ti = pd.merge(df_stock_ti,df_factor_t,how = 'left',on = 'date')
             params_i,tvals_i,pvals_i = newey_west_reg(ret_factor_ti)
             return params_i
-        df_beta_t = df_stock_t.apply(beta_cal,args = (df_factor_t,))
+        df_beta_t = df_stock_t.apply(lambda x: beta_cal(x,df_factor_t))
         # df_beta_t共p+1行,每一列是一只股票在p个因子上的截距和beta值
         for i in range(1,p + 1):
             varname = 'df_beta_' + str(i)

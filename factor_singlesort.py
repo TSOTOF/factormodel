@@ -24,10 +24,11 @@ def singlesort_id_t(df_t_stack,g):
     sort_id_t = pd.Series(np.full(len(df_t),np.nan),index = df_t['code'])
     # 删除有任何数据缺失的股票,缺失过多时不分组,全部股票的分组结果都输出为nan
     df_t.dropna(inplace = True)
-    if len(df_t) <= g*3:
-        return sort_id_t
     # 去掉分组时不考虑的股票
     df_t = df_t[df_t['state'] == 1].reset_index(drop = True)
+    # 当期可交易股票过少时直接返回值为nan的DataFrame
+    if len(df_t) <= g*2:
+        return sort_id_t
     # 分为g组，共g+1个分割点(包括最大值和最小值)
     percentile = np.percentile(df_t['character'],[100/g*i for i in range(g+1)])
     # 对所有未缺失数据的股票分组，输出这些股票对应的组的序号(从1到g的整数)
@@ -111,7 +112,7 @@ def singlesort_stack(df_stack,g,weighted,stated):
                axis = 1,join = 'inner').reset_index()
     df.drop(['state'],axis = 1,inplace = True)
     # 计算上一期分组结果和权重
-    df[['id','weight']] = df.groupby('code')[['id','weight']].shift(1) 
+    df[['id','weight']] = df.groupby('code')[['id','weight']].shift(1)
     df.dropna(inplace = True) #去掉任何存在缺失数据的行
     df = df[['date','code','ret','id','weight']]
     # 计算分组收益率,最终得到的ret_sort的index对应的收益率为下一期的收益率
