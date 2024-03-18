@@ -97,7 +97,7 @@ def panels2stack(df_unstack_lst,colname_lst = None):
         DataFrame的index为datetime.date类型的日期,index_name = 'date'
         各列是因子或公司特征值,shape = [T,N]
 
-    colname_lst:输出的堆栈数据列名,colname_lst = None时不设置列名
+    colname_lst:输出的堆栈数据列名(除了'date'和'code'),colname_lst = None时不设置列名
     
     输出变量:
     df:重新设置index后的堆栈数据,其第一列为date,第二列为code
@@ -105,7 +105,7 @@ def panels2stack(df_unstack_lst,colname_lst = None):
     df_stack = pd.concat([df_i.stack() for df_i in df_unstack_lst],axis = 1)
     df_stack.reset_index(inplace = True)
     if colname_lst != None:
-        df_stack.columns = colname_lst
+        df_stack.columns = ['date','code'] + colname_lst
     return df_stack
 
 
