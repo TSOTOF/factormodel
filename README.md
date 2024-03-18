@@ -207,6 +207,41 @@ type:str,type == 'standardize'时做标准化(z-score),type == 'normalize'时做
 输出变量:
 df_standard:堆栈DataFrame,标准化或归一化后的股票或因子值,index为时间,columns为股票代码或因子,shape = [T,N]
 ```
+### 1.13.resamplefreq_unstack(df_unstack,cycle,type_lst)
+```python
+描述:
+将面板较高频率的数据低频化(日度->周度,月度,季度)
+
+输入变量:
+df_unstack:反堆栈Dataframe,index为日期,columns为需要改变频率的数据,shape = [T,n]
+
+cycle:int,低频化时的取样周期,例如cycle = 5时重新取样的数据根据原始的5条数据(window = 5)计算出
+    常见的cycle = 5(交易日日度->交易日周度),cycle = 20(交易日日度->交易日月度)
+
+type_lst:list,低频化时各列数据的处理方法,values有{'end'(取窗口最后一个值),'start'(取窗口第一个值),'median'(取窗口数据中位数)
+    'mean'(取窗口数据平均值),'common'(取窗口数据众数),'sum'(取窗口数据之和),'max'(取窗口数据最大值),'min'(取窗口数据最小值)}
+
+输出变量:
+df_resample:反堆栈DataFrame,index为日期,columns为改变数据频率之后的数据,shape = [T,n/cycle]
+```
+### 1.14.resamplefreq_stack(df_stack,cycle,type_lst)
+```python
+描述:
+将堆栈较高频率的数据低频化(日度->周度,月度,季度)
+
+输入变量:
+df_unstack:堆栈Dataframe,第一列为日期,第二列为股票代码,
+    columns = ['date','code',...],shape = [T*N,2 + n]
+
+cycle:int,低频化时的取样周期,例如cycle = 5时重新取样的数据根据原始的5条数据(window = 5)计算出
+    常见的cycle = 5(交易日日度->交易日周度),cycle = 20(交易日日度->交易日月度)
+
+type_lst:list,低频化时各列数据的处理方法,values有{'end'(取窗口最后一个值),'start'(取窗口第一个值),'median'(取窗口数据中位数)
+    'mean'(取窗口数据平均值),'common'(取窗口数据众数),'sum'(取窗口数据之和),'max'(取窗口数据最大值),'min'(取窗口数据最小值)}
+
+输出变量:
+df_resample:堆栈DataFrame,第一列为日期,第二列为股票代码,shape = [T*N,2 + n/cycle]
+```
 
 ## 2.factor singlesort
 ### 2.1.singlesort_id_t(df_t_stack,g)
