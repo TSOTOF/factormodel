@@ -382,31 +382,55 @@ def resamplefreq_unstack(df_unstack,cycle,type_lst):
         'mean'(取窗口数据平均值),'common'(取窗口数据众数),'sum'(取窗口数据之和),'max'(取窗口数据最大值),'min'(取窗口数据最小值)}
 
     输出变量:
-    df_resample:反堆栈DataFrame,index为日期,columns为改变数据频率之后的数据,shape = [T,n/cycle]
+    df_resample:反堆栈DataFrame,index为日期,columns为改变数据频率之后的数据,shape = [T/cycle,n]
     '''
     df = df_unstack.copy()
     col_lst = []
-    for j in range(np.size(df,1)):
-        if type_lst[j] == 'start':# values用cycle开始的值,index用cycle结束的值
-            df_temp = df.iloc[range(0,len(df_unstack)-cycle+1,cycle),j]
-            df_temp.index = df.index[range(cycle-1,len(df_unstack),cycle)]
-        elif type_lst[j] == 'end':# values和index都用cycle结束的值
-            df_temp = df.iloc[range(cycle-1,len(df_unstack),cycle),j]
-        elif type_lst[j] == 'median':
-            df_temp = df.iloc[:,j].rolling(cycle).median().iloc[range(cycle-1,len(df_unstack),cycle)]
-        elif type_lst[j] == 'mean':
-            df_temp = df.iloc[:,j].rolling(cycle).mean().iloc[range(cycle-1,len(df_unstack),cycle)]
-        elif type_lst[j] == 'sum':
-            df_temp = df.iloc[:,j].rolling(cycle).sum().iloc[range(cycle-1,len(df_unstack),cycle)]
-        elif type_lst[j] == 'max':
-            df_temp = df.iloc[:,j].rolling(cycle).max().iloc[range(cycle-1,len(df_unstack),cycle)]
-        elif type_lst[j] == 'min':
-            df_temp = df.iloc[:,j].rolling(cycle).min().iloc[range(cycle-1,len(df_unstack),cycle)]
-        elif type_lst[j] == 'common': #如果存在多个众数,会返回最小的众数
-            df_temp = df.iloc[:,j].rolling(cycle).apply(lambda x: mode(x,keepdims = True)[0][0]).\
-                iloc[range(cycle-1,len(df_unstack),cycle)]
-        col_lst.append(pd.DataFrame(df_temp))
-    df_resample = pd.concat(col_lst,axis = 1)
+    def resample_timeseries(timeseries,type_resample):
+        if type_resample == 'start':# values用cycle开始的值,index用cycle结束的值
+            temp = timeseries.iloc[range(0,len(timeseries)-cycle+1,cycle)]
+            temp.index = timeseries.index[range(cycle-1,len(timeseries),cycle)]
+        elif type_resample == 'end':# values和index都用cycle结束的值
+            temp = timeseries.iloc[range(cycle-1,len(timeseries),cycle)]
+        elif type_resample == 'median':
+            temp = timeseries.rolling(cycle).median().iloc[range(cycle-1,len(timeseries),cycle)]
+        elif type_resample == 'mean':
+            temp = timeseries.rolling(cycle).mean().iloc[range(cycle-1,len(timeseries),cycle)]
+        elif type_resample == 'sum':
+            temp = timeseries.rolling(cycle).sum().iloc[range(cycle-1,len(timeseries),cycle)]
+        elif type_resample == 'max':
+            temp = timeseries.rolling(cycle).max().iloc[range(cycle-1,len(timeseries),cycle)]
+        elif type_resample == 'min':
+            temp = timeseries.rolling(cycle).min().iloc[range(cycle-1,len(timeseries),cycle)]
+        elif type_resample == 'common': #如果存在多个众数,会返回最小的众数
+            temp = timeseries.rolling(cycle).apply(lambda x: mode(x,keepdims = True)[0][0]).\
+                iloc[range(cycle-1,len(timeseries),cycle)]
+        return temp
+    if len(set(type_lst)) == 1: # type_lst元素数量为1时可以用apply加速计算
+        type_resample = type_lst[0]
+        df_resample = df.apply(lambda x: resample_timeseries(x,type_resample))
+    else:
+        for j in range(np.size(df,1)):
+            if type_lst[j] == 'start':# values用cycle开始的值,index用cycle结束的值
+                df_temp = df.iloc[range(0,len(df_unstack)-cycle+1,cycle),j]
+                df_temp.index = df.index[range(cycle-1,len(df_unstack),cycle)]
+            elif type_lst[j] == 'end':# values和index都用cycle结束的值
+                df_temp = df.iloc[range(cycle-1,len(df_unstack),cycle),j]
+            elif type_lst[j] == 'median':
+                df_temp = df.iloc[:,j].rolling(cycle).median().iloc[range(cycle-1,len(df_unstack),cycle)]
+            elif type_lst[j] == 'mean':
+                df_temp = df.iloc[:,j].rolling(cycle).mean().iloc[range(cycle-1,len(df_unstack),cycle)]
+            elif type_lst[j] == 'sum':
+                df_temp = df.iloc[:,j].rolling(cycle).sum().iloc[range(cycle-1,len(df_unstack),cycle)]
+            elif type_lst[j] == 'max':
+                df_temp = df.iloc[:,j].rolling(cycle).max().iloc[range(cycle-1,len(df_unstack),cycle)]
+            elif type_lst[j] == 'min':
+                df_temp = df.iloc[:,j].rolling(cycle).min().iloc[range(cycle-1,len(df_unstack),cycle)]
+            elif type_lst[j] == 'common': #如果存在多个众数,会返回最小的众数
+                df_temp = df.iloc[:,j].rolling(cycle).apply(lambda x: mode(x,keepdims = True)[0][0]).\
+                    iloc[range(cycle-1,len(df_unstack),cycle)]
+            col_lst.append(pd.DataFrame(df_temp))
+        df_resample = pd.concat(col_lst,axis = 1)
     return df_resample
 
 
@@ -426,17 +450,20 @@ def resamplefreq_stack(df_stack,cycle,type_lst):
         'mean'(取窗口数据平均值),'common'(取窗口数据众数),'sum'(取窗口数据之和),'max'(取窗口数据最大值),'min'(取窗口数据最小值)}
 
     输出变量:
-    df_resample:堆栈DataFrame,第一列为日期,第二列为股票代码,shape = [T*N,2 + n/cycle]
+    df_resample:堆栈DataFrame,第一列为日期,第二列为股票代码,shape = [T*N/cycle,2 + n]
     '''
     df = df_stack.copy()
     cal_cols = list(df.columns[2:])
-    def group_resample(df_unstack,cycle,type_lst):
-        # 调整groups的格式,方便直接用反堆栈的降频方法
-        df_unstack = df_unstack.set_index('date')
-        df_resample_temp = resamplefreq_unstack(df_unstack,cycle,type_lst)
-        return df_resample_temp.reset_index()
-    df_resample = df.groupby('code')[['date'] + cal_cols].apply(lambda x: group_resample(x,cycle,type_lst))
-    df_resample = df_resample.reset_index()
-    # 还原堆栈数据列名顺序
-    df_resample = df_resample[['date','code'] + cal_cols]
+    resample_lst = []
+    # 分别将不同的列数据频率降低,再拼接起来
+    # 这样做而非直接对code做group再apply是因为对code做group之后不同的group的起始日期和终止日期不同,从而最终的降频结果的日期index不同,达不到想要的效果
+    for i in range(len(cal_cols)):
+        colname = cal_cols[i]
+        df_temp = pd.pivot(df,index = 'date',columns = 'code',values = colname)
+        resample_type = type_lst[i]
+        num_cols = np.size(df_temp,1)
+        df_resample_temp = resamplefreq_unstack(df_temp,cycle,[resample_type]*num_cols)
+        df_resample_temp = panels2stack([df_resample_temp],[colname]).set_index(['date','code'])
+        resample_lst.append(df_resample_temp)
+    df_resample = pd.concat(resample_lst,axis = 1).reset_index()
     return df_resample
