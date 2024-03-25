@@ -173,22 +173,22 @@ def singlesort_unstack(ret,character,g,weighted,stated,weight = None,state = Non
     return ret_sort,df_port
 
 
-def long_short_cal(ret,long_only,fee = None,df_port = None):
+def long_short_cal(ret,df_port,long_only = False,fee = None):
     """
     描述:根据分组收益率计算多空组合收益率
 
     输入参数：
     ret:DataFrame,分组收益率,index为datetime.date格式的日期,shape = [T,group]
 
-    long_only:bool,long_only == True时只计算多头收益,不计算多空收益,long_only == False时计算多空收益
-
-    fee:float,交易费率(一般用0.003),fee == None时不考虑交易费用
-
     df_port:堆栈DataFrame,每个组合中各股票的权重,共4列,列名为['date','code','id','weight']
         date:datetime.date,日期
         code:str,股票代码
         id:float,1~g的整数,分组编号
         weight:float,归一化后的股票权重,相同日期和id的股票weight之和为1
+
+    long_only:bool,long_only == True时只计算多头收益,不计算多空收益,long_only == False时计算多空收益
+        
+    fee:float,交易费率(一般用0.003),fee == None时不考虑交易费用
 
     输出参数：
     df_long_short:DataFrame,index为datetime.date格式的日期,第一列为多空组合收益率,shape = [T,1]
@@ -232,13 +232,15 @@ def long_short_cal(ret,long_only,fee = None,df_port = None):
     return df_long_short
 
 
-def net_val_cal(ret,show = False):
+def net_val_cal(ret,figname,show = False):
     """
     描述:根据分组收益率计算各组累计净值或多空组合净值并画图
 
     输入参数:
     ret:面板DataFrame,分组收益率,index为datetime.date格式的日期,shape = [T,group]
     
+    figname:str,图片名称
+
     show:bool,是否显示图像,当show == True时,会在本函数处暂停向下运行并显示分组净值图像；
     
     show == False时不显示函数图像,只在主函数路径下导出cumulative net value.jpg的文件
@@ -258,13 +260,12 @@ def net_val_cal(ret,show = False):
         plt.figure('多空组合累计净值',figsize=(10,10))
         plt.plot(cum_ret.iloc[:,0],label = '多空组合净值')
         plt.legend()
-        plt.savefig('long_short cumulative net value.jpg')
     else:
         plt.figure('分组累计净值',figsize=(10,10))
         for i in range(group):
             plt.plot(cum_ret.iloc[:,i],label = '第{}组净值'.format(i + 1))
             plt.legend()
-        plt.savefig('cumulative net value.jpg')
+    plt.savefig('{}.jpg'.format(figname))
     if show == True:
         plt.show()
     else:

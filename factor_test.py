@@ -72,43 +72,57 @@ def ratios_cal(df_ratio_pre,multi):
     sharp = np.nanmean(df_ratio['ret'] - df_ratio['rf'])/np.nanstd(df_ratio['ret'])*multi
     # 各期的回撤率
     drawdown = (np.maximum.accumulate(df_ratio['cum_ret']) - df_ratio['cum_ret'])/np.maximum.accumulate(df_ratio['cum_ret'])
-    # 回撤最大时的回撤率
-    max_drawdown = drawdown[np.argmax(np.maximum.accumulate(df_ratio['cum_ret']) - df_ratio['cum_ret'])]
+    # 最大回撤率
+    max_drawdown = max(drawdown)
     return sharp,max_drawdown
 
 
-def newey_west_test(ret,lag = None):
+def newey_west_test(df_ret,lag = None):
     """
     描述：
-    计算收益率序列的均值,newey-west t值和p值
+    计算收益率序列的均值,newey-west t值
 
     输入变量:
-    ret:array,收益率序列,shape = [T,1]
+    df_ret:DataFrame,收益率时间序列,index为datetime.date格式的日期,各列为收益率,shape = [T,n]
 
     lag:int,Newey-West滞后阶数,默认为int(4*(T/100)^(2/9))
 
     输出变量：
-    mean_ret:float,收益率均值
+    mean_ret:df_ret列数 > 1时为list,各列时序收益率均值;df_ret列数 = 1时为float,时序收益率均值
 
-    tval:float,收益率的Newey-west t值
-    
-    pval:float,收益率的Newey-west p值
+    tval:df_ret列数 > 1时为list,各列时序收益率的Newey-west t值;df_ret列数 = 1时为float,时序收益率的Newey-west t值
     """
     import statsmodels.formula.api as smf
-    df_ret = pd.DataFrame(ret,columns = ['y'])
     if lag == None:
-        lag = int(4*(len(ret)/100)**(2/9))
-    reg = smf.ols('y~1',data = df_ret).fit(cov_type = 'HAC',cov_kwds = {'maxlags':lag})
-    mean_ret = reg.params[0]
-    tval = reg.tvalues[0]
-    pval = reg.pvalues[0]
-    return mean_ret,tval,pval
+        lag = int(4*(len(df_ret)/100)**(2/9))
+    # 重命名列名,保证其符合变量名规范
+    colnum = np.size(df_ret,1)
+    colrename = []
+    for i in range(colnum):
+        colrename.append('col' + str(df_ret.columns[i]))
+    df_ret.columns = colrename
+    # 根据列数判断计算方式,列数大于1时循环各列计算
+    if colnum > 1:
+        mean_ret = []
+        tval = []
+        for i in range(colnum):
+            colname = df_ret.columns[i]
+            reg = smf.ols('{}~1'.format(colname),data = df_ret).fit(cov_type = 'HAC',cov_kwds = {'maxlags':lag})
+            mean_ret.append(reg.params[0])
+            tval.append(reg.tvalues[0])
+        return mean_ret,tval
+    else:
+        colname = df_ret.columns[0]
+        reg = smf.ols('{}~1'.format(colname),data = df_ret).fit(cov_type = 'HAC',cov_kwds = {'maxlags':lag})
+        mean_ret = reg.params[0]
+        tval = reg.tvalues[0]
+        return mean_ret,tval
 
 
 def newey_west_reg(ret_factor,lag = None):
     """
     描述：
-    将股票收益率或组合收益率向因子收益率回归,计算回归的alpha,beta,newey-west t值和p值
+    将股票收益率或组合收益率向因子收益率回归,计算回归的alpha,beta,newey-west t值
 
     输入变量:
     ret_factor:DataFrame,第一列为股票或组合收益率,第二列到最后一列为因子收益率,shape = [T,1 + factor_num]
@@ -116,11 +130,9 @@ def newey_west_reg(ret_factor,lag = None):
     lag:int,Newey-West滞后阶数,默认为int(4*(T/100)^(2/9))
 
     输出变量：
-    param:Series,回归系数,当alpha_cal == True时计算包含截距,否则不包含截距
+    param:list,回归系数,当alpha_cal == True时计算包含截距,否则不包含截距
     
-    tval:Series,回归系数的Newey-west t值
-    
-    pval:Series,回归系数的Newey-west p值
+    tval:list,回归系数的Newey-west t值
     """
     import statsmodels.formula.api as smf
     ret_factor.dropna(inplace = True)
@@ -141,10 +153,9 @@ def newey_west_reg(ret_factor,lag = None):
         nanreturn = pd.Series(np.full([N + 1,],np.nan),index = idx)
         return nanreturn,nanreturn,nanreturn #这里保持格式和index一致是为了防止在apply中使用该函数导致拼接结果出错
     reg = smf.ols(reg_equation,data = ret_factor).fit(cov_type = 'HAC',cov_kwds = {'maxlags':lag})
-    params = reg.params
-    tvals = reg.tvalues
-    pvals = reg.pvalues
-    return params,tvals,pvals
+    params = list(reg.params)
+    tvals = list(reg.tvalues)
+    return params,tvals
 
 
 def beta_rolling(df,p,rolling_w):
