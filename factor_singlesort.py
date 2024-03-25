@@ -256,12 +256,11 @@ def net_val_cal(ret,figname,show = False):
     for t in range(len(cum_ret) - 1):
         cum_ret.iloc[t + 1,:] = cum_ret.iloc[t,:]*cum_ret.iloc[t + 1,:] #计算累计净值
     cum_ret = cum_ret/cum_ret.iloc[0,:]
+    plt.figure(figname,figsize=(10,10))
     if group == 1: #只有1列，默认该列为多空组合收益率，计算多空组合累计净值
-        plt.figure('多空组合累计净值',figsize=(10,10))
         plt.plot(cum_ret.iloc[:,0],label = '多空组合净值')
         plt.legend()
     else:
-        plt.figure('分组累计净值',figsize=(10,10))
         for i in range(group):
             plt.plot(cum_ret.iloc[:,i],label = '第{}组净值'.format(i + 1))
             plt.legend()
@@ -270,4 +269,5 @@ def net_val_cal(ret,figname,show = False):
         plt.show()
     else:
         pass
+    plt.close()
     return cum_ret
