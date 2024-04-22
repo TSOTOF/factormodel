@@ -116,7 +116,10 @@ def singlesort_stack(df_stack,g,weighted,stated):
     df.dropna(inplace = True) #去掉任何存在缺失数据的行
     df = df[['date','code','ret','id','weight']]
     # 计算分组收益率,最终得到的ret_sort的index对应的收益率为下一期的收益率
-    ret_sort = df.groupby('date').apply(singlesort_ret_t)
+    try:
+        ret_sort = df.groupby('date').apply(singlesort_ret_t).unstack().fillna(0)
+    except:
+        ret_sort = df.groupby('date').apply(singlesort_ret_t).fillna(0)
     ret_sort.columns = list(range(1,g+1))
     # 计算各期每个组合中各个股票的权重
     df_port = df.drop('ret',axis = 1)
