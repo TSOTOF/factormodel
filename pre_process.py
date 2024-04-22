@@ -87,7 +87,7 @@ def pretty_stack(df_stack,date_format):
     return df_pretty
 
 
-def stack_balance(df_stack,filllimit = 10):
+def fillna_stack(df_stack,filllimit = 10):
     '''
     描述:
     填充堆栈的非平衡面板缺失值(对于上市前的数据为空的情况不做填充,默认最多向前填充10条缺失数据)
@@ -103,10 +103,10 @@ def stack_balance(df_stack,filllimit = 10):
     from itertools import product
     newidx = set(product(set(df_stack['date']),set(df_stack['code'])))
     df_balance = df_stack.set_index(['date','code'])
-    df_balance = df_balance.reindex(newidx).reset_index()
-    df_balance.sort_values(['code','date'],inplace = True,ascending = True)
-    df_balance = df_balance.groupby('code',group_keys = False).apply(lambda x: x.fillna(method = 'ffill',limit = filllimit)).reset_index(drop = True)
-    df_balance = df_balance.dropna(how = 'any')
+    addidx = set(newidx).difference(set(df_stack.index))
+    df_balance = df_balance.reindex(newidx).sort_index()
+    df_balance = df_balance.groupby('code',group_keys = False).apply(lambda x: x.fillna(method = 'ffill',limit = filllimit))
+    df_balance = df_balance.loc[~(df_balance.isna().any(axis = 1)*df_balance.index.isin(addidx))].reset_index()
     return df_balance
 
 
